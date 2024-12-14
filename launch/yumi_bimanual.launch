@@ -1,0 +1,47 @@
+<launch>
+
+<!-- adding parameters -->
+
+<!-- <rosparam param="/initial_joint_position/right_arm" >[0.216, -1.225, -1.027, 0.584, -1.405, 0.831, 0.105]</rosparam> -->
+<!-- <rosparam param="/initial_joint_position/right_arm" >[1.13, -1.82, -0.54, 0.52, -2.14, 1.73, 0.17]</rosparam> -->
+<!-- <rosparam param="/initial_joint_position/right_arm" >[1.386, -1.825, -0.349, 0.352, -2.33, 1.983, 0.122]</rosparam> -->
+<!-- <rosparam param="/initial_joint_position/right_arm" >[1.4363, -1.769, -0.360,  0.620,  -2.193,  2.099,  0.214]</rosparam>-->
+<rosparam param="/initial_joint_position/right_arm" >[1.262, -1.67, -0.398,0.362,  -2.114,  1.950, 0.129]</rosparam>
+<rosparam param="/place_joint_position/right_arm" >[1.419,  -0.701, -1.055,  0.699, -1.700, 1.476,  1.415]</rosparam>
+
+<!-- <rosparam param="/initial_joint_position/left_arm" >[-0.32, -1.36 ,0.675 ,0.44 ,1.36, 1.33, 0.048]</rosparam> -->
+<rosparam param="/initial_joint_position/left_arm" >[-1.27, -1.84, 0.28, 0.49, 2.08, 1.94, -0.03]</rosparam>
+<rosparam param="/place_joint_position/left_arm" >[-1.304, -1.057, 0.885, 0.784 , 1.804, 1.655, -1.272]</rosparam>
+
+<!-- left {0,2,12,4,6,8,10};
+right {1,3,13,5,7,9,11};
+
+[-1.304, -1.057, 0.885, 0.784 , 1.804, 1.655, -1.272]
+[1.419,  -0.701, -1.055,  0.699, -1.700, 1.476,  1.415]
+
+
+[-1.3038712739944458, 1.4191126823425293, -1.0569640398025513, -0.7011634707450867, 0.7843911647796631,
+ 0.698839545249939, 1.804258108139038, -1.7001872062683105, 1.65535569190979, 1.4764459133148193,
+  -1.2723441123962402, 1.4156272411346436, 0.8854501843452454, -1.0551340579986572] -->
+
+<!-- TODO: left arm -->
+
+<param name="JOINT_VELOCITY_LIMIT" type="double" value="0.15" />
+<param name="VELOCITY_CONST" type="double" value="3.0" />
+<param name="ROTATION_CONST" type="double" value="3.0" />
+<param name="TELE_VELOCITY_CONST" type="double" value="0.5" />
+<param name="TELE_ROTATION_CONST" type="double" value="0.25" />
+<param name="MAX_POS_ERR" type="double" value="0.005" />
+<param name="MAX_ROT_ERR" type="double" value="0.01" />
+<param name="ALPHA" type="double" value="0.7" />
+
+<!-- TODO: left arm -->
+
+<node name="yumi_bimanual_motion_right_arm" pkg="yumi_controllers" type="yumi_bimanual_motion" args="2" output="screen"/>
+<!-- <node name="yumi_bimanual_motion_left_arm" pkg="yumi_controllers" type="yumi_bimanual_motion" args="1" output="screen"/> -->
+
+
+</launch>
+
+
+

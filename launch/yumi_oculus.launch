@@ -1,0 +1,41 @@
+<launch>
+
+<!-- adding parameters -->
+<rosparam param="/initial_joint_position/right_arm0" >[1.36, -1.14, -1.52, 0.88, -2.29, 1.41, -0.135]</rosparam>
+<rosparam param="/initial_joint_position/right_arm1" >[1.89, -0.996, -1.75,  0.211, -2.15,  1.24,  1.26]</rosparam>
+<!-- <rosparam param="/initial_joint_position/left_arm1" >[-1.90, -1.31, 1.48, 0.53, 2.39, 1.74, 0.27]</rosparam> -->
+<rosparam param="/initial_joint_position/left_arm1" >[-1.78, -1.40, 1.29, 0.50, 2.40, 1.75, 0.52]</rosparam>
+<rosparam param="/command_timeout" > 0.5 </rosparam>
+<!-- [0.60, -1.64, -1.17,  0.54, -1.99,  1.04,  0.31] -->
+<!-- [1.89, -0.996, -1.75,  0.211, -2.15,  1.24,  1.26] -->
+
+<node name="yumi_full_motion" pkg="yumi_controllers" type="yumi_full_motion" output="screen"/>
+
+</launch>
+
+
+
+<!-- 
+name: [yumi_joint_1_r, yumi_joint_2_r, yumi_joint_7_r, yumi_joint_3_r, yumi_joint_4_r, yumi_joint_5_r,
+  yumi_joint_6_r, yumi_joint_1_l, yumi_joint_2_l, yumi_joint_7_l, yumi_joint_3_l,
+  yumi_joint_4_l, yumi_joint_5_l, yumi_joint_6_l, gripper_r_joint, gripper_r_joint_m,
+  gripper_l_joint, gripper_l_joint_m]
+position: [0.6078870892524719, -1.6399731636047363, -1.1690657138824463, 0.5398261547088623, -1.9915419816970825, 1.0454375743865967, 0.31250518560409546, -1.5020203590393066, -2.3560826778411865, 0.03920479863882065, 0.303165078163147, 2.68989896774292, 1.69463312625885, 2.758476734161377, 0.02500000037252903, 0.02500000037252903, 0.010100000537931919, 0.010100000537931919]
+
+
+
+
+name: [yumi_joint_1_l, yumi_joint_1_r, yumi_joint_2_l, yumi_joint_2_r, yumi_joint_3_l, yumi_joint_3_r,
+  yumi_joint_4_l, yumi_joint_4_r, yumi_joint_5_l, yumi_joint_5_r, yumi_joint_6_l,
+  yumi_joint_6_r, yumi_joint_7_l, yumi_joint_7_r]
+position: 
+[-1.9016289710998535, -0.04148432984948158, -1.314265251159668, -1.9602538347244263, 0.5281128287315369, 0.9628759622573853, 2.3876616954803467, -2.0700013637542725, 1.7391588687896729, 0.9877415895462036, 0.2692681550979614, 1.3399779796600342, 1.477350115776062, -1.5104416608810425]
+
+ -->
+ <!--
+ yumi_joint_1_l, yumi_joint_1_r, yumi_joint_2_l, yumi_joint_2_r, yumi_joint_3_l, yumi_joint_3_r,
+  yumi_joint_4_l, yumi_joint_4_r, yumi_joint_5_l, yumi_joint_5_r, yumi_joint_6_l,
+  yumi_joint_6_r, yumi_joint_7_l, yumi_joint_7_r
+  
+ position: [-1.7851711511611938, -0.04032617434859276, -1.4050720930099487, -1.9621405601501465, 0.501487672328949, 0.9616890549659729, 2.4049956798553467, -2.0748438835144043, 1.7506858110427856, 1.301361083984375, 0.5254362225532532, 1.339970350265503, 1.2910577058792114, -1.5146572589874268]
+ -->
