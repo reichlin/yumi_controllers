@@ -37,8 +37,10 @@ right {1,3,13,5,7,9,11};
 
 <!-- TODO: left arm -->
 
-<node name="yumi_bimanual_motion_right_arm" pkg="yumi_controllers" type="yumi_bimanual_motion" args="2" output="screen"/>
+<!-- <node name="yumi_bimanual_motion_right_arm" pkg="yumi_controllers" type="yumi_bimanual_motion" args="2" output="screen"/> -->
 <!-- <node name="yumi_bimanual_motion_left_arm" pkg="yumi_controllers" type="yumi_bimanual_motion" args="1" output="screen"/> -->
+
+<node name="yumi_ik_ctrl" pkg="yumi_controllers" type="yumi_ik_ctrl" args="2" output="screen"/>
 
 
 </launch>
