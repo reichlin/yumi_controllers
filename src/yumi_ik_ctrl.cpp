@@ -7,6 +7,7 @@
 #include <sensor_msgs/JointState.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <std_msgs/Int32.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/String.h>
 #include <sstream>
@@ -52,17 +53,25 @@ public:
 		robot_ready = 1;
 	}
 
-	void desired_pose_callback(const geometry_msgs::PoseStamped &msg)
+	void desired_vel_callback(const geometry_msgs::Twist & msg)
 	{
-		desired_geometry_msg = msg;
-		return;
+		desired_vel.vel.x(msg.linear.x);
+		desired_vel.vel.y(msg.linear.y);
+		desired_vel.vel.z(msg.linear.z);
+		desired_vel.rot.x(msg.angular.x);
+		desired_vel.rot.y(msg.angular.y);
+		desired_vel.rot.z(msg.angular.z);
+	}
+
+	void desired_gripper_callback(const std_msgs::Int32 & msg) {
+		desired_gripper = msg.data;
 	}
 
 //	double lowPassFilter(double current, double previous, double alpha) {
 //    	return alpha * current + (1.0 - alpha) * previous;
 //	}
 
-	double limit_joint_velcmd(double cmd, int joint) {
+	double limit_joint_delta_velcmd(double cmd, int joint) {
 		double limited_cmd = cmd;
 		double joint_vel = dq_current[joint];
 		if((cmd - joint_vel) > JOINT_VELOCITY_LIMIT)
@@ -83,12 +92,12 @@ public:
 		dq_pub.resize(7);
 
 		joint_subscriber = nh_.subscribe("/yumi/joint_states", 1, &YumiArmController::joint_state_callback, this);
-		gripper_subscriber = nh_.subscribe("/yumi/gripper_states",1, &YumiArmController::gripper_state_callback, this);
-
+		gripper_subscriber = nh_.subscribe("/yumi/gripper_states", 1, &YumiArmController::gripper_state_callback, this);
 
 		// set joints velocity commands and gripper topics
 		int urdf_order[7] = {1,2,7,3,4,5,6};
 		std::string gripper_effort_topic_name;
+		std::string command_topic;
 		if (arm_id_ == 1) { // left arm
 			for(int i = 0; i < 7; i++) {
 				command_topic = "yumi/joint_vel_controller_" + std::to_string(urdf_order[i]) + "_l/command";
@@ -96,6 +105,8 @@ public:
 			}
 			gripper_effort_topic_name = "/yumi/gripper_l_effort_cmd";
 			gripper_command_pub = nh_.advertise<std_msgs::Float64>(gripper_effort_topic_name, 2);
+			des_vel_subscriber = nh_.subscribe("/yumi/end_effector_vel_cmd_l", 1, &YumiArmController::desired_vel_callback, this);
+			des_grip_subscriber = nh_.subscribe("/yumi/grip_cmd_l", 1, &YumiArmController::desired_gripper_callback, this);
 		} else { // right arm
 			for(int i = 0; i < 7; i++) {
 				command_topic = "yumi/joint_vel_controller_" + std::to_string(urdf_order[i]) + "_r/command";
@@ -103,6 +114,8 @@ public:
 			}
 			gripper_effort_topic_name = "/yumi/gripper_r_effort_cmd";
 			gripper_command_pub = nh_.advertise<std_msgs::Float64>(gripper_effort_topic_name, 2);
+			des_vel_subscriber = nh_.subscribe("/yumi/end_effector_vel_cmd_r", 1, &YumiArmController::desired_vel_callback, this);
+			des_grip_subscriber = nh_.subscribe("/yumi/grip_cmd_r", 1, &YumiArmController::desired_gripper_callback, this);
 		}
 
 		nh_.getParam("JOINT_VELOCITY_LIMIT", JOINT_VELOCITY_LIMIT);
@@ -135,11 +148,10 @@ public:
 			ros::spinOnce();
 			if (robot_ready == 1) {
 				reset_arm();
-				arm_kdl_wrapper.fk_solver_pos->JntToCart(q_current, current_pose, -1);
+				// arm_kdl_wrapper.fk_solver_pos->JntToCart(q_current, current_pose, -1);
 				//init_rotation = current_pose.M;
-				std::cout << "current_pose xyz: " << current_pose.p(0)<< " " <<current_pose.p(1)<< " "<<current_pose.p(2)<< " "<< std::endl;
-				std::cout << "arm resetted" << std::endl;
-
+				// std::cout << "current_pose xyz: " << current_pose.p(0)<< " " <<current_pose.p(1)<< " "<<current_pose.p(2)<< " "<< std::endl;
+				// std::cout << "arm resetted" << std::endl;
 				return;
 			}
 			ros::Duration(0.1).sleep();
@@ -151,25 +163,76 @@ public:
 	// Destructor
     ~YumiArmController() {
         // reset_arm();
+		std_msgs::Float64 cmd;
 		cmd.data = 0;
 		for (int i = 0; i < 7; i++)
 			dq_pub[i].publish(cmd);
     }
 
 	void main_loop() {
-		ros::spin();
+
+		ros::Rate loop_rate(250);
+		std_msgs::Float64 cmd;
+		std_msgs::Float64 gripper_cmd;
+		double prev_right_gripper = right_gripper_current+1;
+
+
+
+		while(ros::ok()) {
+			ros::spinOnce();
+
+			arm_kdl_wrapper.ik_solver_vel->CartToJnt(q_current, desired_vel, dq_cmd);
+
+			for(int i = 0; i < 7; i++) // arm
+			{
+				cmd.data = VELOCITY_CONST * dq_cmd(i);
+				cmd.data = limit_joint_delta_velcmd(cmd.data, i);
+				// cmd.data = lowPassFilter(cmd.data, prevCmd[i], ALPHA);
+				dq_pub[i].publish(cmd);
+			}
+
+			// for the left arm this is an effort: -20 max opening force, 20 max closing force
+			// for the right arm this is a position: 0 closed, 20 open
+			if (arm_id_ == 1) {  // left gripper
+
+				if (desired_gripper == 1) { // close gripper
+					gripper_cmd.data = 15.0;
+				} else { // open gripper
+					if (left_gripper_current < 0.02)
+						gripper_cmd.data = -10.0;
+					else
+						gripper_cmd.data = 0.0;
+				}
+
+			} else {  // right gripper
+
+				if (desired_gripper == 1) { // close gripper
+					gripper_cmd.data = std::max(1000*right_gripper_current - 4.0, 0.0);
+				} else { // open gripper
+					gripper_cmd.data = 20.0;
+				}
+			}
+			prev_right_gripper = right_gripper_current;
+
+			
+			gripper_command_pub.publish(gripper_cmd);
+
+			loop_rate.sleep();
+		}
+
 	}
 
 	void reset_arm() {
 		
 		// go to intial joint position
+		std_msgs::Float64 cmd;
 		bool all_fine = false;
 		while(all_fine == false) {
 			ros::spinOnce();
 			all_fine = true;
 			for (int i = 0; i < 7; i++) {
 				cmd.data = 0.3*(init_joint_position[i]-q_current(i));
-				cmd.data = limit_joint_velcmd(cmd.data, i);
+				cmd.data = limit_joint_delta_velcmd(cmd.data, i);
 				dq_pub[i].publish(cmd);
 				if(std::abs(init_joint_position[i]-q_current(i))>0.02)
 					all_fine = false;
@@ -182,11 +245,12 @@ public:
 		for (int i = 0; i < 7; i++)
 			dq_pub[i].publish(cmd);
 
-		// open gripper (for the right arm this is a position not an effort)
-		open_gripper();
+		// // open gripper (for the right arm this is a position not an effort)
+		// open_gripper();
 	}
 
 	void open_gripper() {
+		std_msgs::Float64 gripper_cmd;
 		if (arm_id_ == 1) {  // left arm
 			// for the left arm this is an effort: -20 max opening force, 20 max closing force
 			gripper_cmd.data = -10.0;
@@ -203,6 +267,7 @@ public:
 	}
 
 	void close_gripper() {
+		std_msgs::Float64 gripper_cmd;
 		if (arm_id_ == 1) {  // left arm
 			// for the left arm this is an effort: -20 max opening force, 20 max closing force
 			gripper_cmd.data = 15.0;
@@ -235,26 +300,24 @@ private:
 	ros::NodeHandle nh_;
 	int arm_id_;
 
+	int robot_ready;
+
 	KDL::JntArray q_current;
 	std::vector<double> dq_current;
-	KDLWrapper arm_kdl_wrapper;
-	KDL::Twist arm_cart_velocity;
 	KDL::JntArray dq_cmd;
-	KDL::Frame current_pose;
+	KDLWrapper arm_kdl_wrapper;
 
 	ros::Subscriber joint_subscriber;
 	ros::Subscriber gripper_subscriber;
+	ros::Subscriber des_vel_subscriber;
+	ros::Subscriber des_grip_subscriber;
 	std::vector<ros::Publisher> dq_pub;
 	ros::Publisher gripper_command_pub;
 
-	std_msgs::Float64 cmd;
-	std_msgs::Float64 gripper_cmd;
-	std::string command_topic;
-	int robot_ready;
+	// geometry_msgs::PoseStamped desired_geometry_msg;
+	KDL::Twist desired_vel;
+	int desired_gripper = 0;
 
-	geometry_msgs::PoseStamped desired_geometry_msg;
-
-	// constants
 	std::vector<double> init_joint_position;
 
 	double left_gripper_current;
@@ -265,6 +328,17 @@ private:
 	double MAX_POS_ERR;
 	double MAX_ROT_ERR;
 	double ALPHA;
+
+
+
+	// KDL::Frame current_pose;
+
+	
+	// std_msgs::Float64 cmd;
+	// std_msgs::Float64 gripper_cmd;
+	
+	// KDL::Twist arm_cart_velocity;
+	
 
 };
 

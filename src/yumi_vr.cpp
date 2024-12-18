@@ -3,6 +3,7 @@
 #include <sensor_msgs/JointState.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <std_msgs/Int32.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/String.h>
 #include <sstream>
@@ -23,18 +24,6 @@
 #include <cstdlib>
 #include <ctime>
 
-// global variables
-/*
-#define JOINT_VELOCITY_LIMIT 0.05
-#define VELOCITY_CONST 2.0 //1.0
-#define ROTATION_CONST 2.0 //1.0
-#define MAX_POS_ERR 0.05
-#define MAX_ROT_ERR 0.05
-#define ALPHA 0.7
-*/
-
-// functions declarations
-
 
 class YumiVR {
 public:
@@ -44,21 +33,19 @@ public:
 
 		
 		if (arm_id_ == 1) { // left arm
-			teleop_subscriber = nh_.subscribe("/q2r_right_hand_twist",1, &YumiArmController::teleoperation_callback, this);
-			teleop_button_subscriber = nh_.subscribe("/q2r_right_hand_inputs",1, &YumiArmController::tele_button_callback, this);
+			teleop_subscriber = nh_.subscribe("/q2r_right_hand_twist",1, &YumiVR::teleoperation_callback, this);
+			teleop_button_subscriber = nh_.subscribe("/q2r_right_hand_inputs",1, &YumiVR::tele_button_callback, this);
+			des_vel_pub = nh_.advertise<geometry_msgs::Twist>("/yumi/end_effector_vel_cmd_r", 2);
+			des_grip_pub = nh_.advertise<std_msgs::Int32>("/yumi/grip_cmd_r", 2);
 		} else { // right arm
-			teleop_subscriber = nh_.subscribe("/q2r_left_hand_twist",1, &YumiArmController::teleoperation_callback, this);
-			teleop_button_subscriber = nh_.subscribe("/q2r_left_hand_inputs",1, &YumiArmController::tele_button_callback, this);
+			teleop_subscriber = nh_.subscribe("/q2r_left_hand_twist",1, &YumiVR::teleoperation_callback, this);
+			teleop_button_subscriber = nh_.subscribe("/q2r_left_hand_inputs",1, &YumiVR::tele_button_callback, this);
+			des_vel_pub = nh_.advertise<geometry_msgs::Twist>("/yumi/end_effector_vel_cmd_l", 2);
+			des_grip_pub = nh_.advertise<std_msgs::Int32>("/yumi/grip_cmd_l", 2);
 		}
 
-		nh_.getParam("JOINT_VELOCITY_LIMIT", JOINT_VELOCITY_LIMIT);
-		nh_.getParam("VELOCITY_CONST", VELOCITY_CONST);
-		nh_.getParam("ROTATION_CONST", ROTATION_CONST);
 		nh_.getParam("TELE_VELOCITY_CONST", TELE_VELOCITY_CONST);
 		nh_.getParam("TELE_ROTATION_CONST", TELE_ROTATION_CONST);
-		nh_.getParam("MAX_POS_ERR", MAX_POS_ERR);
-		nh_.getParam("MAX_ROT_ERR", MAX_ROT_ERR);
-		nh_.getParam("ALPHA", ALPHA);
 		
 		std::cout << "vr_node started" << std::endl;
 		
@@ -66,12 +53,39 @@ public:
 
     // Destructor
     ~YumiVR() {
-		// TODO: set twist to all zeros?
+		set_vel_to_zero();
         return;
     }
 
+	void set_vel_to_zero() {
+		desired_vel_msg.linear.x = 0.0;
+		desired_vel_msg.linear.y = 0.0;
+		desired_vel_msg.linear.z = 0.0;
+		desired_vel_msg.angular.x = 0.0;
+		desired_vel_msg.angular.y = 0.0;
+		desired_vel_msg.angular.z = 0.0;
+	}
+
 	void main_loop() {
-		ros::spin();
+
+		ros::Rate loop_rate(50);
+
+
+		while(ros::ok()) {
+
+			ros::spinOnce();
+
+			des_vel_pub.publish(desired_vel_msg);
+
+			if (press_middle < 0.5)
+				desired_gripper_msg.data = 1;
+			else
+				desired_gripper_msg.data = 0;
+
+			des_grip_pub.publish(desired_gripper_msg);
+
+			loop_rate.sleep();
+		}
 	}
 
 	void tele_button_callback(const quest2ros::OVR2ROSInputs & msg)
@@ -85,97 +99,93 @@ public:
 
 	void teleoperation_callback(const geometry_msgs::Twist& vel_user_msg)
 	{	
-		KDL::Twist kdl_twist;
+		// KDL::Twist kdl_twist;
+		
 
 		if (press_index<0.8) {
 
-			kdl_twist.vel.x(0.0);
-			kdl_twist.vel.y(0.0);
-			kdl_twist.vel.z(0.0);
-			kdl_twist.rot.x(0.0);
-			kdl_twist.rot.y(0.0);
-			kdl_twist.rot.z(0.0);
-
-			// TODO: publish message
-
+			set_vel_to_zero();
 			return;
 		}
 
-		kdl_twist.vel.x(vel_user_msg.linear.x);
-		kdl_twist.vel.y(vel_user_msg.linear.y);
-		kdl_twist.vel.z(vel_user_msg.linear.z);
+		desired_vel_msg.linear.x = TELE_VELOCITY_CONST * vel_user_msg.linear.x;
+		desired_vel_msg.linear.y = TELE_VELOCITY_CONST * vel_user_msg.linear.y;
+		desired_vel_msg.linear.z = TELE_VELOCITY_CONST * vel_user_msg.linear.z;
+		desired_vel_msg.angular.x = TELE_ROTATION_CONST * vel_user_msg.angular.x;
+		desired_vel_msg.angular.y = TELE_ROTATION_CONST * vel_user_msg.angular.y;
+		desired_vel_msg.angular.z = TELE_ROTATION_CONST * vel_user_msg.angular.z;
 
 		
 		
-		// TODO: rotations?
+		// // TODO: rotations?
 
 
 
 
-		// Keep the rotation constant 
-		double angle1_des = 0.0;
-		double angle2_des = 0.0;
-		double angle3_des = 0.0;
-		double angle1_cur = 0.0;
-		double angle2_cur = 0.0;
-		double angle3_cur = 0.0;
-		init_rotation.GetRPY(angle1_des, angle2_des, angle3_des);
-		current_pose.M.GetRPY(angle1_cur, angle2_cur, angle3_cur);
+		// // Keep the rotation constant 
+		// double angle1_des = 0.0;
+		// double angle2_des = 0.0;
+		// double angle3_des = 0.0;
+		// double angle1_cur = 0.0;
+		// double angle2_cur = 0.0;
+		// double angle3_cur = 0.0;
+		// init_rotation.GetRPY(angle1_des, angle2_des, angle3_des);
+		// current_pose.M.GetRPY(angle1_cur, angle2_cur, angle3_cur);
 
-		// std::cout<<" init rpy: "<<angle1_des<<" "<<angle2_des<<" "<<angle3_des<<" "<< " current rpy: "<<angle1_cur<<" "<<angle2_cur<<" "<<angle3_cur<<std::endl;
+		// // std::cout<<" init rpy: "<<angle1_des<<" "<<angle2_des<<" "<<angle3_des<<" "<< " current rpy: "<<angle1_cur<<" "<<angle2_cur<<" "<<angle3_cur<<std::endl;
 
-		double angle1_diff = angle1_des - angle1_cur;
-		double angle2_diff = angle2_des - angle2_cur;
-		double angle3_diff = angle3_des - angle3_cur;
-		angle1_diff += (angle1_diff > M_PI) ? -2*M_PI : (angle1_diff < -M_PI) ? 2*M_PI : 0;
-		angle2_diff += (angle2_diff > M_PI) ? -2*M_PI : (angle2_diff < -M_PI) ? 2*M_PI : 0;
-		angle3_diff += (angle3_diff > M_PI) ? -2*M_PI : (angle3_diff < -M_PI) ? 2*M_PI : 0;
+		// double angle1_diff = angle1_des - angle1_cur;
+		// double angle2_diff = angle2_des - angle2_cur;
+		// double angle3_diff = angle3_des - angle3_cur;
+		// angle1_diff += (angle1_diff > M_PI) ? -2*M_PI : (angle1_diff < -M_PI) ? 2*M_PI : 0;
+		// angle2_diff += (angle2_diff > M_PI) ? -2*M_PI : (angle2_diff < -M_PI) ? 2*M_PI : 0;
+		// angle3_diff += (angle3_diff > M_PI) ? -2*M_PI : (angle3_diff < -M_PI) ? 2*M_PI : 0;
 		
-		// Set angular components
-		kdl_twist.rot.x(TELE_ROTATION_CONST* angle1_diff);
-		kdl_twist.rot.y(TELE_ROTATION_CONST* angle2_diff);
-		kdl_twist.rot.z(TELE_ROTATION_CONST* angle3_diff);
+		// // Set angular components
+		// kdl_twist.rot.x(TELE_ROTATION_CONST* angle1_diff);
+		// kdl_twist.rot.y(TELE_ROTATION_CONST* angle2_diff);
+		// kdl_twist.rot.z(TELE_ROTATION_CONST* angle3_diff);
 
-		arm_kdl_wrapper.ik_solver_vel->CartToJnt(arm_joint_positions, kdl_twist, arm_joint_velcmd);
+		// arm_kdl_wrapper.ik_solver_vel->CartToJnt(arm_joint_positions, kdl_twist, arm_joint_velcmd);
 
-		std::vector<double> prevCmd(7, 0.0);
-		for(int i = 0; i < 7; i++)
-		{
-			cmd.data = TELE_VELOCITY_CONST * arm_joint_velcmd(i);
-			cmd.data = limit_joint_velcmd(cmd.data, i);
-			// cmd.data = lowPassFilter(cmd.data, prevCmd[i], ALPHA);
-			velocity_command_pub[i].publish(cmd);
-			prevCmd[i] = cmd.data;
-		}
-		
-		if (arm_id_==2)
-		{
-			double command = (1-press_middle)*20;
-			gripper_cmd.data = command<4. ? 4. : command;
-			gripper_command_pub.publish(gripper_cmd);
-		}
-		else
-		{
-			std::cout << "close gripper: " << press_middle << std::endl;
-			// gripper_cmd.data = 15.0;
-			if (press_middle<0.5)
-			{
-				if (press_middle<0.01) {gripper_cmd.data=0.;}
-				else {gripper_cmd.data=-20;}
-			}
-			else
-			{
-				gripper_cmd.data=15;
-			}
-			gripper_command_pub.publish(gripper_cmd);
-		}
-
-		// go_to_position(KDL::Frame(init_rotation, current_pose.p), vel_constant);
-
-		// ros::Duration(0.1).sleep();
-
-		// for (int i = 0; i < 7; i++)
+		// std::vector<double> prevCmd(7, 0.0);
+		// for(int i = 0; i < 7; i++)
+		// {
+		// 	cmd.data = TELE_VELOCITY_CONST * arm_joint_velcmd(i);
+		// 	cmd.data = limit_joint_velcmd(cmd.data, i);
+		// 	// cmd.data = lowPassFilter(cmd.data, prevCmd[i], ALPHA);
 		// 	velocity_command_pub[i].publish(cmd);
+		// 	prevCmd[i] = cmd.data;
+		// }
+		
+		// if (arm_id_==2)
+		// {
+		// 	double command = (1-press_middle)*20;
+		// 	gripper_cmd.data = command<4. ? 4. : command;
+		// 	gripper_command_pub.publish(gripper_cmd);
+		// }
+		// else
+		// {
+		// 	std::cout << "close gripper: " << press_middle << std::endl;
+		// 	// gripper_cmd.data = 15.0;
+		// 	if (press_middle<0.5)
+		// 	{
+		// 		if (press_middle<0.01) {gripper_cmd.data=0.;}
+		// 		else {gripper_cmd.data=-20;}
+		// 	}
+		// 	else
+		// 	{
+		// 		gripper_cmd.data=15;
+		// 	}
+		// 	gripper_command_pub.publish(gripper_cmd);
+		// }
+
+		// // go_to_position(KDL::Frame(init_rotation, current_pose.p), vel_constant);
+
+		// // ros::Duration(0.1).sleep();
+
+		// // for (int i = 0; i < 7; i++)
+		// // 	velocity_command_pub[i].publish(cmd);
 		
 
 
@@ -188,38 +198,13 @@ private:
 	ros::NodeHandle nh_;
 	int arm_id_;
 
+	geometry_msgs::Twist desired_vel_msg;
+	std_msgs::Int32 desired_gripper_msg;
 
-	std_msgs::Float64 cmd;
-	std_msgs::Float64 gripper_cmd;
-
-
-
-	KDL::JntArray arm_joint_positions;
-	std::vector<double> arm_joint_velocity;
-	KDLWrapper arm_kdl_wrapper;
-	KDL::Twist arm_cart_velocity;
-	KDL::JntArray arm_joint_velcmd;
-	KDL::Frame current_pose;
-	KDL::Rotation init_rotation;
-
-	ros::Subscriber joint_subscriber;
-	ros::Subscriber gripper_subscriber;
 	ros::Subscriber teleop_subscriber;
 	ros::Subscriber teleop_button_subscriber;
-	ros::Subscriber desired_pose_subscriber;
-	std::vector<ros::Publisher> velocity_command_pub;
-	ros::Publisher gripper_command_pub;
-
-	std_msgs::Float64 cmd;
-	std_msgs::Float64 gripper_cmd;
-	std::string command_topic;
-	int robot_ready;
-
-	geometry_msgs::PoseStamped desired_geometry_msg;
-
-	// constants
-	std::vector<std::vector<double>> init_joint_position;
-	std::vector<std::vector<double>> place_joint_position;
+	ros::Publisher des_vel_pub;
+	ros::Publisher des_grip_pub;
 
 	double TELE_VELOCITY_CONST;
 	double TELE_ROTATION_CONST;
@@ -243,8 +228,6 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
 
     YumiVR yumi_vr(nh, arm_id);
-
-    ros::spin();
 
 	yumi_vr.main_loop();
 
