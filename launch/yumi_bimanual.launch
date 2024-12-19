@@ -27,8 +27,8 @@ right {1,3,13,5,7,9,11};
 <!-- TODO: left arm -->
 
 <param name="JOINT_VELOCITY_LIMIT" type="double" value="0.15" />
-<param name="VELOCITY_CONST" type="double" value="3.0" />
-<param name="ROTATION_CONST" type="double" value="3.0" />
+<param name="VELOCITY_CONST" type="double" value="0.3" />
+<param name="ROTATION_CONST" type="double" value="0.3" />
 <param name="TELE_VELOCITY_CONST" type="double" value="0.5" />
 <param name="TELE_ROTATION_CONST" type="double" value="0.25" />
 <param name="MAX_POS_ERR" type="double" value="0.005" />
@@ -41,6 +41,7 @@ right {1,3,13,5,7,9,11};
 <!-- <node name="yumi_bimanual_motion_left_arm" pkg="yumi_controllers" type="yumi_bimanual_motion" args="1" output="screen"/> -->
 
 <node name="yumi_ik_ctrl" pkg="yumi_controllers" type="yumi_ik_ctrl" args="2" output="screen"/>
+<node name="yumi_taskspace_ctrl" pkg="yumi_controllers" type="yumi_taskspace_ctrl" args="2" output="screen"/>
 
 
 </launch>

@@ -25,6 +25,7 @@
 #include <cstdlib>
 #include <ctime>
 
+
 class YumiArmController {
 public:
 
@@ -91,6 +92,7 @@ public:
 		dq_cmd.resize(7);
 		dq_pub.resize(7);
 
+
 		joint_subscriber = nh_.subscribe("/yumi/joint_states", 1, &YumiArmController::joint_state_callback, this);
 		gripper_subscriber = nh_.subscribe("/yumi/gripper_states", 1, &YumiArmController::gripper_state_callback, this);
 
@@ -128,12 +130,14 @@ public:
 		// get wanted initial configuration of the joints
 		std::vector<double> vect;
 		if (arm_id_ == 1) {
-			nh_.getParam("/initial_joint_position/left_arm", vect);
+			if (!nh_.getParam("/initial_joint_position/left_arm", vect))
+				vect = {-1.27, -1.84, 0.28, 0.49, 2.08, 1.94, -0.03};
 			init_joint_position = vect;
 			if(!arm_kdl_wrapper.init("yumi_body", "yumi_link_7_l"))
 				ROS_ERROR("Error initializing right_arm_kdl_wrapper");
 		} else {
-			nh_.getParam("/initial_joint_position/right_arm", vect);
+			if(!nh_.getParam("/initial_joint_position/right_arm", vect))
+				vect = {1.262, -1.67, -0.398,0.362,  -2.114,  1.950, 0.129};
 			init_joint_position = vect;
 			if(!arm_kdl_wrapper.init("yumi_body", "yumi_link_7_r"))
 				ROS_ERROR("Error initializing right_arm_kdl_wrapper");
@@ -322,12 +326,12 @@ private:
 
 	double left_gripper_current;
 	double right_gripper_current;
-	double JOINT_VELOCITY_LIMIT;
-	double VELOCITY_CONST;
-	double ROTATION_CONST;
-	double MAX_POS_ERR;
-	double MAX_ROT_ERR;
-	double ALPHA;
+	double JOINT_VELOCITY_LIMIT = 0.15;
+	double VELOCITY_CONST = 3.0;
+	double ROTATION_CONST = 3.0;
+	double MAX_POS_ERR = 0.005;
+	double MAX_ROT_ERR = 0.01;
+	double ALPHA = 0.7;
 
 
 
