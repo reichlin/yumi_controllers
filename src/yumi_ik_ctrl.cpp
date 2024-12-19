@@ -143,7 +143,7 @@ public:
 				ROS_ERROR("Error initializing right_arm_kdl_wrapper");
 		}
 
-		arm_kdl_wrapper.ik_solver_vel->setLambda(0.3);
+		arm_kdl_wrapper.ik_solver_vel->setLambda(0.01);
 
 		std::cout << "yumi_node started" << std::endl;
 
@@ -185,11 +185,18 @@ public:
 		while(ros::ok()) {
 			ros::spinOnce();
 
+			desired_vel.vel.x(VELOCITY_CONST * desired_vel.vel.x);
+			desired_vel.vel.y(VELOCITY_CONST * desired_vel.vel.y);
+			desired_vel.vel.z(VELOCITY_CONST * desired_vel.vel.z);
+			desired_vel.rot.x(ROTATION_CONST * desired_vel.rot.x);
+			desired_vel.rot.y(ROTATION_CONST * desired_vel.rot.y);
+			desired_vel.rot.z(ROTATION_CONST * desired_vel.rot.z);
+
 			arm_kdl_wrapper.ik_solver_vel->CartToJnt(q_current, desired_vel, dq_cmd);
 
 			for(int i = 0; i < 7; i++) // arm
 			{
-				cmd.data = VELOCITY_CONST * dq_cmd(i);
+				cmd.data = dq_cmd(i);
 				cmd.data = limit_joint_delta_velcmd(cmd.data, i);
 				// cmd.data = lowPassFilter(cmd.data, prevCmd[i], ALPHA);
 				dq_pub[i].publish(cmd);
@@ -327,8 +334,8 @@ private:
 	double left_gripper_current;
 	double right_gripper_current;
 	double JOINT_VELOCITY_LIMIT = 0.15;
-	double VELOCITY_CONST = 3.0;
-	double ROTATION_CONST = 3.0;
+	double VELOCITY_CONST = 0.3;
+	double ROTATION_CONST = 0.3;
 	double MAX_POS_ERR = 0.005;
 	double MAX_ROT_ERR = 0.01;
 	double ALPHA = 0.7;
