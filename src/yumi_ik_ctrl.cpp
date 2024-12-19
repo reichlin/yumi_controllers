@@ -56,12 +56,13 @@ public:
 
 	void desired_vel_callback(const geometry_msgs::Twist & msg)
 	{
-		desired_vel.vel.x(msg.linear.x);
-		desired_vel.vel.y(msg.linear.y);
-		desired_vel.vel.z(msg.linear.z);
-		desired_vel.rot.x(msg.angular.x);
-		desired_vel.rot.y(msg.angular.y);
-		desired_vel.rot.z(msg.angular.z);
+
+		desired_vel.vel.x(VELOCITY_CONST * msg.linear.x);
+		desired_vel.vel.y(VELOCITY_CONST * msg.linear.y);
+		desired_vel.vel.z(VELOCITY_CONST * msg.linear.z);
+		desired_vel.rot.x(ROTATION_CONST * msg.angular.x);
+		desired_vel.rot.y(ROTATION_CONST * msg.angular.y);
+		desired_vel.rot.z(ROTATION_CONST * msg.angular.z);
 	}
 
 	void desired_gripper_callback(const std_msgs::Int32 & msg) {
@@ -155,7 +156,7 @@ public:
 				// arm_kdl_wrapper.fk_solver_pos->JntToCart(q_current, current_pose, -1);
 				//init_rotation = current_pose.M;
 				// std::cout << "current_pose xyz: " << current_pose.p(0)<< " " <<current_pose.p(1)<< " "<<current_pose.p(2)<< " "<< std::endl;
-				// std::cout << "arm resetted" << std::endl;
+				std::cout << "arm ready" << std::endl;
 				return;
 			}
 			ros::Duration(0.1).sleep();
@@ -180,17 +181,8 @@ public:
 		std_msgs::Float64 gripper_cmd;
 		double prev_right_gripper = right_gripper_current+1;
 
-
-
 		while(ros::ok()) {
 			ros::spinOnce();
-
-			desired_vel.vel.x(VELOCITY_CONST * desired_vel.vel.x);
-			desired_vel.vel.y(VELOCITY_CONST * desired_vel.vel.y);
-			desired_vel.vel.z(VELOCITY_CONST * desired_vel.vel.z);
-			desired_vel.rot.x(ROTATION_CONST * desired_vel.rot.x);
-			desired_vel.rot.y(ROTATION_CONST * desired_vel.rot.y);
-			desired_vel.rot.z(ROTATION_CONST * desired_vel.rot.z);
 
 			arm_kdl_wrapper.ik_solver_vel->CartToJnt(q_current, desired_vel, dq_cmd);
 

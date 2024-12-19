@@ -1,0 +1,32 @@
+<launch>
+
+<!-- adding parameters -->
+
+<rosparam param="/initial_joint_position/right_arm">[1.26, -1.67, -0.40, 0.36, -2.114, 1.95, 0.13]</rosparam>
+
+<rosparam param="/initial_joint_position/left_arm">[-1.27, -1.84, 0.28, 0.49, 2.08, 1.94, -0.03]</rosparam>
+
+<param name="JOINT_VELOCITY_LIMIT" type="double" value="0.15" />
+<param name="VELOCITY_CONST" type="double" value="0.3" />
+<param name="ROTATION_CONST" type="double" value="0.3" />
+<param name="TELE_VELOCITY_CONST" type="double" value="0.5" />
+<param name="TELE_ROTATION_CONST" type="double" value="0.25" />
+<param name="MAX_POS_ERR" type="double" value="0.005" />
+<param name="MAX_ROT_ERR" type="double" value="0.01" />
+<param name="ALPHA" type="double" value="0.7" />
+
+<include file="$(find ros_tcp_endpoint)/launch/endpoint.launch">
+  <arg name="tcp_ip" value="192.168.80.129" />
+  <arg name="tcp_port" value="10000" />
+</include>
+
+<node name="quest2ros" pkg="quest2ros" type="ros2quest.py" output="screen"/>
+
+<node name="yumi_ik_ctrl" pkg="yumi_controllers" type="yumi_ik_ctrl" args="1" output="screen"/>
+<node name="yumi_vr" pkg="yumi_controllers" type="yumi_vr" args="1" output="screen"/>
+
+
+</launch>
+
+
+
