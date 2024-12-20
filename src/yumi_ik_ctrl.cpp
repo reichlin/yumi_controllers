@@ -8,6 +8,7 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <std_msgs/Int32.h>
+#include <std_msgs/Bool.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/String.h>
 #include <sstream>
@@ -57,21 +58,21 @@ public:
 	void desired_vel_callback(const geometry_msgs::Twist & msg)
 	{
 
-		desired_vel.vel.x(VELOCITY_CONST * msg.linear.x);
-		desired_vel.vel.y(VELOCITY_CONST * msg.linear.y);
-		desired_vel.vel.z(VELOCITY_CONST * msg.linear.z);
-		desired_vel.rot.x(ROTATION_CONST * msg.angular.x);
-		desired_vel.rot.y(ROTATION_CONST * msg.angular.y);
-		desired_vel.rot.z(ROTATION_CONST * msg.angular.z);
+		desired_vel.vel.x(msg.linear.x);
+		desired_vel.vel.y(msg.linear.y);
+		desired_vel.vel.z(msg.linear.z);
+		desired_vel.rot.x(msg.angular.x);
+		desired_vel.rot.y(msg.angular.y);
+		desired_vel.rot.z(msg.angular.z);
 	}
 
 	void desired_gripper_callback(const std_msgs::Int32 & msg) {
 		desired_gripper = msg.data;
 	}
 
-//	double lowPassFilter(double current, double previous, double alpha) {
-//    	return alpha * current + (1.0 - alpha) * previous;
-//	}
+	double lowPassFilter(double current, double previous, double alpha) {
+   	return alpha * current + (1.0 - alpha) * previous;
+	}
 
 	double limit_joint_delta_velcmd(double cmd, int joint) {
 		double limited_cmd = cmd;
@@ -124,9 +125,11 @@ public:
 		nh_.getParam("JOINT_VELOCITY_LIMIT", JOINT_VELOCITY_LIMIT);
 		nh_.getParam("VELOCITY_CONST", VELOCITY_CONST);
 		nh_.getParam("ROTATION_CONST", ROTATION_CONST);
-		nh_.getParam("MAX_POS_ERR", MAX_POS_ERR);
-		nh_.getParam("MAX_ROT_ERR", MAX_ROT_ERR);
 		nh_.getParam("ALPHA", ALPHA);
+
+		std::string ik_status_topic_name;
+		ik_status_topic_name = "/yumi/ik_ctrl_ready";
+		ik_status_pub = nh_.advertise<std_msgs::Bool>(ik_status_topic_name, 2);
 
 		// get wanted initial configuration of the joints
 		std::vector<double> vect;
@@ -157,6 +160,9 @@ public:
 				//init_rotation = current_pose.M;
 				// std::cout << "current_pose xyz: " << current_pose.p(0)<< " " <<current_pose.p(1)<< " "<<current_pose.p(2)<< " "<< std::endl;
 				std::cout << "arm ready" << std::endl;
+				std_msgs::Bool arm_ready;
+				arm_ready.data = true;
+				ik_status_pub.publish(arm_ready);
 				return;
 			}
 			ros::Duration(0.1).sleep();
@@ -185,13 +191,14 @@ public:
 			ros::spinOnce();
 
 			arm_kdl_wrapper.ik_solver_vel->CartToJnt(q_current, desired_vel, dq_cmd);
-
+			std::vector<double> prevCmd(7, 0.0);
 			for(int i = 0; i < 7; i++) // arm
 			{
 				cmd.data = dq_cmd(i);
 				cmd.data = limit_joint_delta_velcmd(cmd.data, i);
-				// cmd.data = lowPassFilter(cmd.data, prevCmd[i], ALPHA);
+				cmd.data = lowPassFilter(cmd.data, prevCmd[i], ALPHA);
 				dq_pub[i].publish(cmd);
+				prevCmd[i] = cmd.data;
 			}
 
 			// for the left arm this is an effort: -20 max opening force, 20 max closing force
@@ -247,6 +254,11 @@ public:
 		cmd.data = 0;
 		for (int i = 0; i < 7; i++)
 			dq_pub[i].publish(cmd);
+		
+		ros::spinOnce();
+		KDL::Frame current_pose;
+		arm_kdl_wrapper.fk_solver_pos->JntToCart(q_current, current_pose, -1);
+		std::cout << "current pose xyz" << current_pose.p(0)<< " " <<current_pose.p(1)<< " "<<current_pose.p(2)<<  std::endl;
 
 		// // open gripper (for the right arm this is a position not an effort)
 		// open_gripper();
@@ -316,6 +328,7 @@ private:
 	ros::Subscriber des_grip_subscriber;
 	std::vector<ros::Publisher> dq_pub;
 	ros::Publisher gripper_command_pub;
+	ros::Publisher ik_status_pub;
 
 	// geometry_msgs::PoseStamped desired_geometry_msg;
 	KDL::Twist desired_vel;
@@ -328,8 +341,8 @@ private:
 	double JOINT_VELOCITY_LIMIT = 0.15;
 	double VELOCITY_CONST = 0.3;
 	double ROTATION_CONST = 0.3;
-	double MAX_POS_ERR = 0.005;
-	double MAX_ROT_ERR = 0.01;
+	// double MAX_POS_ERR = 0.005;
+	// double MAX_ROT_ERR = 0.01;
 	double ALPHA = 0.7;
 
 
